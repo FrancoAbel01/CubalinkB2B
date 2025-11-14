@@ -19,6 +19,8 @@ const PUBLIC_LINKS = [
   { to: '/', label: 'Empresas', icon: <HomeIcon className="w-4 h-4" />, end: true },
   { to: '/feed', label: 'Publicaciones', icon: <FileText className="w-4 h-4" /> },
   { to: '/services', label: 'Servicios', icon: <Briefcase className="w-4 h-4" /> },
+  { to: '/blog', label: 'Blogs', icon: <Briefcase className="w-4 h-4" /> },
+  { to: '/pricing', label: 'Planes', icon: <Briefcase className="w-4 h-4" /> },
 ];
 
 export default function MobileDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
