@@ -36,19 +36,29 @@ export function Navbar({ onOpenMobile }: { onOpenMobile?: () => void }) {
           </div>
 
 
-
           {/* CENTER: enlaces principales (col 2) - oculto en mobile */}
           <div className="hidden md:flex justify-center space-x-6 col-start-2 col-end-3" role="group" aria-label="Enlaces principales">
-            <NavLink to="/" end className={({ isActive }) => `${linkBase} ${isActive ? 'text-blue-600' : 'text-black'}`}>
+            <NavLink to="/" end className={({ isActive }) => `${linkBase} ${isActive ? 'text-slate-600' : 'text-black'}`}>
               Empresas
             </NavLink>
 
-            <NavLink to="/feed" className={({ isActive }) => `${linkBase} ${isActive ? 'text-blue-600' : 'text-black'}`}>
+            <NavLink to="/feed" className={({ isActive }) => `${linkBase} ${isActive ? 'text-slate-600' : 'text-black'}`}>
               Publicaciones
             </NavLink>
 
-            <NavLink to="/services" className={({ isActive }) => `${linkBase} ${isActive ? 'text-blue-600' : 'text-black'}`}>
+            {/* <NavLink to="/blog" className={({ isActive }) => `${linkBase} ${isActive ? 'text-slate-600' : 'text-black'}`}>
+              Blog
+            </NavLink>
+
+            <NavLink to="/pricing" className={({ isActive }) => `${linkBase} ${isActive ? 'text-slate-600' : 'text-black'}`}>
+              Planes
+            </NavLink>
+
+            <NavLink to="/services" className={({ isActive }) => `${linkBase} ${isActive ? 'text-slate-600' : 'text-black'}`}>
               Servicios
+            </NavLink> */}
+            <NavLink to="/about" className={({ isActive }) => `${linkBase} ${isActive ? 'text-slate-600' : 'text-black'}`}>
+              Nosotros
             </NavLink>
           </div>
 

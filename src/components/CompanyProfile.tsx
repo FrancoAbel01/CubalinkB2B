@@ -417,7 +417,21 @@
 //   );
 // }
 // src/components/CompanyProfile.tsx
-import React, { useEffect, useState } from 'react';
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+import React, { useEffect, useState, useRef } from 'react';
 import { Edit } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { Company } from '../lib/supabase';
@@ -462,6 +476,7 @@ export default function CompanyProfile({
 }: CompanyProfileProps) {
   const [editingCompany, setEditingCompany] = useState(false);
   const [companySaving, setCompanySaving] = useState(false);
+  const [logoUploading, setLogoUploading] = useState(false); // nuevo estado para subida de logo
   const [companyEditForm, setCompanyEditForm] = useState<CompanyEditForm>({
     name: '',
     description: '',
@@ -486,6 +501,8 @@ export default function CompanyProfile({
     message?: React.ReactNode;
     show: boolean;
   }>({ variant: 'info', show: false });
+
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (company) {
@@ -540,6 +557,73 @@ export default function CompanyProfile({
     });
   }
 
+  // ---------------------------
+  // NUEVO: manejar selección de fichero y subida
+  // ---------------------------
+  function handleLogoFileSelect(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    // preview local inmediato
+    const url = URL.createObjectURL(file);
+    setCompanyLogoPreview(url);
+
+    // subir inmediatamente y obtener public url
+    uploadLogoFile(file).catch((err) => {
+      console.error('uploadLogoFile error:', err);
+    });
+  }
+
+  async function uploadLogoFile(file: File) {
+    if (!company) {
+      setAlertState({ variant: 'danger', title: 'Error', message: 'Empresa no cargada', show: true });
+      return;
+    }
+
+    setLogoUploading(true);
+    try {
+      // determinar extensión segura
+      const parts = file.name.split('.');
+      const ext = parts.length > 1 ? parts.pop() : 'png';
+      const cleanExt = ext?.split('?')[0].split('#')[0] ?? 'png';
+      const filePath = `companies/${company.id}/logo-${Date.now()}.${cleanExt}`;
+
+      // subir al bucket público 'images'
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('images')
+        .upload(filePath, file, { upsert: true });
+
+      if (uploadError) {
+        console.error('Supabase upload error', uploadError);
+        setAlertState({ variant: 'danger', title: 'Error de subida', message: uploadError.message, show: true });
+        return;
+      }
+
+      // obtener public URL (bucket es público)
+      const { data: publicData } = supabase.storage.from('images').getPublicUrl(filePath);
+      const publicUrl = publicData?.publicUrl ?? null;
+
+      if (!publicUrl) {
+        setAlertState({ variant: 'danger', title: 'Error', message: 'No se pudo obtener la URL pública del archivo.', show: true });
+        return;
+      }
+
+      // actualizar el form (no hacemos commit a la tabla todavía, solo ponemos la url lista para guardar)
+      setCompanyEditForm((prev) => ({ ...prev, logo_url: publicUrl }));
+      setCompanyLogoPreview(publicUrl);
+
+      setAlertState({ variant: 'success', title: 'Logo subido', message: 'Logo subido correctamente al bucket.', show: true });
+    } catch (err: any) {
+      console.error('uploadLogoFile unexpected error', err);
+      setAlertState({ variant: 'danger', title: 'Error', message: err?.message ?? String(err), show: true });
+    } finally {
+      setLogoUploading(false);
+      // liberar object URL si era un blob temporal (opcional)
+    }
+  }
+
+  // ---------------------------
+  // Guardar cambios (ya existente)
+  // ---------------------------
   async function saveCompanyEdits() {
     if (!company) return;
     setCompanySaving(true);
@@ -687,20 +771,57 @@ export default function CompanyProfile({
 
               {/* Logo & banner */}
               <div>
-                <label className="text-xs font-medium text-slate-600">Logo URL</label>
-                <input
-                  type="url"
-                  value={companyEditForm.logo_url}
-                  onChange={(e) => setCompanyEditForm({ ...companyEditForm, logo_url: e.target.value })}
-                  className="mt-1 w-full text-sm px-3 py-2 rounded-md border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  placeholder="https://.../logo.png"
-                />
-                {companyLogoPreview && (
-                  <div className="mt-2">
-                    <p className="text-xs text-slate-500 mb-1">Vista previa</p>
-                    <img src={companyLogoPreview} alt="preview" className="w-24 h-24 object-cover rounded-md border border-slate-100" />
+                <label className="text-xs font-medium text-slate-600">Logo</label>
+
+                <div className="mt-2 flex items-start gap-3">
+                  <div className="flex-shrink-0">
+                    {companyLogoPreview ? (
+                      <img src={companyLogoPreview} alt="preview" className="w-24 h-24 object-cover rounded-md border border-slate-100" />
+                    ) : (
+                      <div className="w-24 h-24 rounded-md bg-slate-200 flex items-center justify-center text-sm text-slate-500">Sin logo</div>
+                    )}
                   </div>
-                )}
+
+                  <div className="flex-1">
+                    <p className="text-xs text-slate-500 mb-2">Sube un logo (PNG/JPG). Se guardará en el bucket público <code>images</code>.</p>
+                    <div className="flex items-center gap-2">
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={handleLogoFileSelect}
+                        className="hidden"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="px-3 py-2 rounded-md bg-white border border-slate-200 text-sm hover:bg-slate-50"
+                      >
+                        Seleccionar fichero
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          // Si ya hay una URL en el form, se puede eliminar/limpiar
+                          setCompanyEditForm((p) => ({ ...p, logo_url: '' }));
+                          setCompanyLogoPreview(null);
+                        }}
+                        className="px-3 py-2 rounded-md bg-red-50 text-red-700 border border-red-100 text-sm"
+                      >
+                        Eliminar
+                      </button>
+
+                      <div className="ml-auto text-xs text-slate-500">
+                        {logoUploading ? 'Subiendo...' : 'No se sube hasta seleccionar'}
+                      </div>
+                    </div>
+
+                    <p className="mt-2 text-xs text-slate-400">
+                      Después de subir el logo, pulsa <strong>Guardar cambios</strong> para persistir la URL en la base de datos.
+                    </p>
+                  </div>
+                </div>
               </div>
 
               <div>
